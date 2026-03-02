@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cell-View Sorting Experiments</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f4f4f9; color: #333; margin: 0; padding: 20px; line-height: 1.6; overflow-x: hidden; }
+        .header { text-align: center; margin-bottom: 20px; }
+        
+        .main-layout { display: flex; gap: 20px; max-width: 1350px; margin: 0 auto; align-items: flex-start; justify-content: center; position: relative; }
+        .left-col { flex: 2; display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+        .right-col { flex: 1; display: flex; flex-direction: column; gap: 20px; min-width: 450px; }
+
+        .controls { display: flex; justify-content: center; align-items: center; gap: 15px; flex-wrap: wrap; background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        button { padding: 10px 20px; border: none; border-radius: 5px; background: #007bff; color: white; cursor: pointer; font-size: 14px; font-weight: bold; transition: 0.2s; }
+        button:hover { background: #0056b3; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        .btn-resume { background: #27ae60; width: 100%; margin-top: 15px; font-size: 14px; padding: 10px; }
+        .btn-resume:hover { background: #2ecc71; }
+        
+        .slider-container { display: flex; align-items: center; gap: 10px; font-weight: bold; }
+        
+        .legend { display: flex; justify-content: center; gap: 15px; font-size: 13px; font-weight: bold; }
+        .legend-item { display: flex; align-items: center; gap: 5px; }
+        .box { width: 14px; height: 14px; border-radius: 3px; border: 1px solid #333; }
+        .bg-frozen { background: #95a5a6; border-style: dashed; border-width: 2px; }
+        
+        #array-wrapper { position: relative; background: #fff; padding: 40px 20px 20px 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); overflow-x: auto; overflow-y: hidden; display: flex; flex-direction: column; align-items: center; }
+        #array-container { display: flex; align-items: flex-end; justify-content: center; gap: 2px; height: 200px; position: relative; }
+        .cell { 
+            width: 18px; 
+            border-radius: 4px 4px 0 0; 
+            text-align: center; 
+            transition: height 0.3s ease, transform 0.3s ease, background-color 0.3s ease, left 0.3s ease; 
+            border: 1px solid rgba(0,0,0,0.1); 
+            border-bottom: none;
+            position: absolute;
+        }
+        
+        /* Movement Flashes */
+        .flash-forward {
+            filter: brightness(1.2) saturate(1.2);
+            outline: 3px solid #2ecc71;
+            outline-offset: 1px;
+            z-index: 100 !important;
+        }
+        .flash-backward {
+            filter: brightness(1.2) saturate(1.5);
+            outline: 4px solid #e67e22;
+            outline-offset: 1px;
+            z-index: 100 !important;
+        }
+
+        /* Event Pulse Indicator (for post-tutorial) */
+        @keyframes pulse-yellow {
+            0% { outline: 0px solid rgba(241, 196, 15, 0.7); }
+            70% { outline: 10px solid rgba(241, 196, 15, 0); }
+            100% { outline: 0px solid rgba(241, 196, 15, 0); }
+        }
+        .event-pulse {
+            animation: pulse-yellow 1.5s infinite;
+            z-index: 100 !important;
+        }
+
+        .dashboard { display: flex; gap: 20px; justify-content: space-between; }
+        .chart-container { background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); flex: 1; min-width: 0; position: relative; height: 250px; }
+        
+        .pseudocode-panel { background: #ffffff; color: #2c3e50; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); font-size: 14px; border: 1px solid #ddd; }
+        .pseudocode-panel h3 { margin-top: 0; color: #d35400; border-bottom: 2px solid #e67e22; padding-bottom: 10px; }
+        .code-block { font-family: 'Consolas', 'Courier New', monospace; line-height: 1.6; color: #34495e; }
+        .code-line { padding: 2px 8px; border-radius: 4px; transition: background 0.1s; border-left: 3px solid transparent; }
+        .active-line { background: #f1c40f66; border-left: 3px solid #f1c40f; font-weight: bold; }
+        .code-comment { color: #7f8c8d; font-style: italic; }
+        .code-keyword { color: #2980b9; font-weight: bold; }
+
+        /* Information Panel Styling */
+        .info-card { background: #ffffff; color: #2c3e50; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); font-size: 14px; border: 1px solid #ddd; margin-bottom: 20px; transition: all 0.3s ease; }
+        .info-card h3 { margin-top: 0; padding-bottom: 10px; }
+        .info-card.event-active { border: 2px solid #e67e22; box-shadow: 0 5px 15px rgba(230,126,34,0.2); }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>Sorting Algorithms as a Model of Morphogenesis</h1>
+        <p style="margin-top: -15px; color: #7f8c8d;">Visualizing unexpected competencies in minimal models of intelligence</p>
+        <p style="font-size: 12px; color: #95a5a6; max-width: 800px; margin: 10px auto 0 auto; line-height: 1.4;">
+            This webpage is directly based on the work of Taining Zhang, Adam Goldstein, and Michael Levin which can be found here: 
+            <a href="https://arxiv.org/abs/2401.05375" target="_blank" style="color: #3498db; text-decoration: none;">https://arxiv.org/abs/2401.05375</a>.<br>
+            <i>Note: This webpage is not affiliated with Michael Levin or his research team.</i>
+        </p>
+    </div>
+
+    <div class="main-layout">
+        <div class="left-col">
+            <div class="controls">
+                <button id="btn-delayed">Experiment 1: Delayed Gratification</button>
+                <button id="btn-chimeric">Experiment 2: Chimeric Clustering</button>
+                <button id="btn-play" disabled>▶ Play Simulation</button>
+                
+                <div class="slider-container">
+                    <label for="speed-slider">Speed:</label>
+                    <input type="range" id="speed-slider" min="1" max="20" value="5">
+                </div>
+            </div>
+
+            <div id="array-wrapper">
+                <div class="legend">
+                    <div class="legend-item"><div class="box bg-asc" style="background: hsl(210, 90%, 50%); border: none;"></div> "Ascending" Agent</div>
+                    <div class="legend-item"><div class="box bg-desc" style="background: hsl(0, 90%, 50%); border: none;"></div> "Descending" Agent</div>
+                    <div class="legend-item"><div class="box bg-frozen"></div> Frozen Cell (Barrier)</div>
+                </div>
+                
+                <div id="array-container"></div>
+            </div>
+
+            <div class="dashboard">
+                <div class="chart-container">
+                    <canvas id="sortChart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <canvas id="aggChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="right-col">
+            <div id="info-panel" class="info-card">
+                <div id="info-default">
+                    <h3 style="color: #3498db; border-bottom: 2px solid #3498db;">Experiment Status</h3>
+                    <p>Select an experiment to observe the execution of cell-view sorting algorithms.</p>
+                    <ul style="padding-left: 20px; color: #7f8c8d; line-height: 1.4;">
+                        <li style="margin-bottom: 8px;"><strong>Delayed Gratification:</strong> Examines the system's ability to navigate static defects.</li>
+                        <li><strong>Chimeric Clustering:</strong> Examines spatial distribution in mixed-policy arrays.</li>
+                    </ul>
+                </div>
+                <div id="info-event" style="display: none;">
+                    <h3 id="info-title" style="color: #e67e22; border-bottom: 2px solid #e67e22;">Event Detected</h3>
+                    <div id="dialog-content" style="font-size: 15px; margin-top: 10px;"></div>
+                    <div style="font-size: 12px; color: #7f8c8d; margin-top: 10px; font-style: italic;">Showing slow-motion replay...</div>
+                    <button class="btn-resume" onclick="window.resumeSimulation()">I see, continue ▶</button>
+                </div>
+            </div>
+
+            <div class="pseudocode-panel">
+                <h3>The "Cell-View" Logic</h3>
+                <div class="code-block" id="pseudocode">
+                    <div id="line-0" class="code-line"><span class="code-keyword">FOR EACH</span> CELL (running in parallel):</div>
+                    <div id="line-1" class="code-line">&nbsp;&nbsp;1. Look at Left Neighbor</div>
+                    <div id="line-2" class="code-line">&nbsp;&nbsp;2. Look at Right Neighbor</div>
+                    <div id="line-3" class="code-line">&nbsp;&nbsp;<span class="code-keyword">IF</span> type is <span style="color:#3498db">"Ascending"</span>:</div>
+                    <div id="line-4" class="code-line">&nbsp;&nbsp;&nbsp;&nbsp;<span class="code-keyword">If</span> value &lt; Left: <span style="color:#e67e22">Swap Left!</span></div>
+                    <div id="line-5" class="code-line">&nbsp;&nbsp;&nbsp;&nbsp;<span class="code-keyword">If</span> value &gt; Right: <span style="color:#e67e22">Swap Right!</span></div>
+                    <div id="line-6" class="code-line">&nbsp;&nbsp;<span class="code-keyword">IF</span> type is <span style="color:#e74c3c">"Descending"</span>:</div>
+                    <div id="line-7" class="code-line">&nbsp;&nbsp;&nbsp;&nbsp;<span class="code-keyword">If</span> value &gt; Left: <span style="color:#e67e22">Swap Left!</span></div>
+                    <div id="line-8" class="code-line">&nbsp;&nbsp;&nbsp;&nbsp;<span class="code-keyword">If</span> value &lt; Right: <span style="color:#e67e22">Swap Right!</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. State Variables ---
+        let cells = [];
+        let isPlaying = false;
+        let intervalId = null;
+        let stepCount = 0;
+        let sortChart, aggChart;
+        let currentExperiment = '';
+        
+        let dgStage = 0;
+        let aggStage = 0;
+        let dialogCooldown = 0;
+        
+        let isReplaying = false;
+        let replayIndices = [];
+        let replayIntervalId = null;
+        let dgCompleted = false;
+        let aggCompleted = false;
+
+        // --- 2. Class Definitions ---
+        class Cell {
+            static nextId = 0;
+            constructor(value, algotype = "Bubble_Asc", frozen = false) {
+                this.id = Cell.nextId++;
+                this.value = value;
+                this.algotype = algotype;
+                this.frozen = frozen;
+                this.flashType = null; 
+            }
+        }
+
+        // --- 3. Core Logic & Metrics ---
+        function simulateStep() {
+            if (cells.length === 0 || isReplaying) return { swapped: false };
+            
+            // Clear previous flashes
+            cells.forEach(c => c.flashType = null);
+
+            const idx = Math.floor(Math.random() * cells.length);
+            const cell = cells[idx];
+
+            if (cell.frozen) return { swapped: false }; 
+
+            let directions = [];
+            if (idx > 0) directions.push(-1);
+            if (idx < cells.length - 1) directions.push(1);
+            directions.sort(() => Math.random() - 0.5);
+
+            for (let d of directions) {
+                const neighbor = cells[idx + d];
+                let activeLine = -1;
+                
+                if (cell.algotype === "Bubble_Asc") {
+                    if (d === -1) {
+                        activeLine = 4;
+                        if (cell.value < neighbor.value) {
+                            const prevSortedness = getSortedness();
+                            [cells[idx], cells[idx + d]] = [cells[idx + d], cells[idx]];
+                            const newSortedness = getSortedness();
+                            const dg = neighbor.frozen && newSortedness < prevSortedness;
+                            cell.flashType = dg ? 'backward' : 'forward';
+                            return { swapped: true, dgEvent: dg, activeCellIndex: idx + d, activeLine, swapIndices: [idx, idx + d] };
+                        }
+                    } else {
+                        activeLine = 5;
+                        if (cell.value > neighbor.value) {
+                            [cells[idx], cells[idx + d]] = [cells[idx + d], cells[idx]];
+                            cell.flashType = 'forward';
+                            return { swapped: true, dgEvent: false, activeCellIndex: idx + d, activeLine, swapIndices: [idx, idx + d] };
+                        }
+                    }
+                } else if (cell.algotype === "Bubble_Desc") {
+                    if (d === -1) {
+                        activeLine = 7;
+                        if (cell.value > neighbor.value) {
+                            [cells[idx], cells[idx + d]] = [cells[idx + d], cells[idx]];
+                            cell.flashType = 'forward';
+                            return { swapped: true, dgEvent: false, activeCellIndex: idx + d, activeLine, swapIndices: [idx, idx + d] };
+                        }
+                    } else {
+                        activeLine = 8;
+                        if (cell.value < neighbor.value) {
+                            [cells[idx], cells[idx + d]] = [cells[idx + d], cells[idx]];
+                            cell.flashType = 'forward';
+                            return { swapped: true, dgEvent: false, activeCellIndex: idx + d, activeLine, swapIndices: [idx, idx + d] };
+                        }
+                    }
+                }
+            }
+            return { swapped: false };
+        }
+
+        function getSortedness() {
+            if (cells.length <= 1) return 1.0;
+            let score = 0;
+            for (let i = 1; i < cells.length; i++) {
+                if (cells[i].value >= cells[i - 1].value) score++;
+            }
+            return score / (cells.length - 1);
+        }
+
+        function getAggregation() {
+            if (cells.length <= 1) return 1.0;
+            let score = 0;
+            for (let i = 1; i < cells.length; i++) {
+                if (cells[i].algotype === cells[i - 1].algotype) score++;
+            }
+            return score / (cells.length - 1);
+        }
+
+        // --- 4. Chart Functions ---
+        function updateCharts() {
+            if (!sortChart || !aggChart) return;
+            sortChart.data.labels.push(stepCount);
+            sortChart.data.datasets[0].data.push(getSortedness());
+            sortChart.update();
+
+            aggChart.data.labels.push(stepCount);
+            aggChart.data.datasets[0].data.push(getAggregation());
+            aggChart.update();
+        }
+
+        function initCharts() {
+            const ctxSort = document.getElementById('sortChart').getContext('2d');
+            const ctxAgg = document.getElementById('aggChart').getContext('2d');
+
+            if (sortChart) sortChart.destroy();
+            if (aggChart) aggChart.destroy();
+
+            const commonOptions = {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: false,
+                scales: {
+                    x: { title: { display: true, text: 'Time (Steps)' }, ticks: { display: false } },
+                    y: { min: 0, max: 1, title: { display: true, text: 'Value' } }
+                }
+            };
+
+            sortChart = new Chart(ctxSort, {
+                type: 'line',
+                data: { labels: [], datasets: [{ label: 'Sortedness (Order)', data: [], borderColor: '#3498db', tension: 0.2, pointRadius: 0, fill: true, backgroundColor: 'rgba(52, 152, 219, 0.1)' }] },
+                options: commonOptions
+            });
+
+            aggChart = new Chart(ctxAgg, {
+                type: 'line',
+                data: { labels: [], datasets: [{ label: 'Aggregation (Clumping)', data: [], borderColor: '#9b59b6', tension: 0.2, pointRadius: 0, fill: true, backgroundColor: 'rgba(155, 89, 182, 0.1)' }] },
+                options: commonOptions
+            });
+            
+            updateCharts();
+        }
+
+        function highlightLine(lineId) {
+            document.querySelectorAll('.code-line').forEach(el => el.classList.remove('active-line'));
+            if (lineId >= 0) {
+                const line = document.getElementById(`line-${lineId}`);
+                if (line) line.classList.add('active-line');
+            }
+        }
+
+        // --- 5. DOM & UI Functions ---
+        function getCellColor(cell) {
+            if (cell.frozen) return '#95a5a6'; // Always grey for frozen
+            
+            const maxVal = 40;
+            const percent = cell.value / maxVal; // 0 to 1
+            
+            if (cell.algotype === 'Bubble_Asc') {
+                // Shades of blue: Darker for higher values
+                const lightness = 85 - (percent * 55); // 85% down to 30%
+                return `hsl(215, 90%, ${lightness}%)`;
+            } else {
+                // Shades of red: Darker for higher values
+                const lightness = 85 - (percent * 55); 
+                return `hsl(5, 90%, ${lightness}%)`;
+            }
+        }
+
+        function renderArray(highlightIndex = -1, pulseIndex = -1) {
+            const container = document.getElementById('array-container');
+            const maxVal = Math.max(...cells.map(c => c.value)) || 40;
+            const barWidth = 20; 
+
+            cells.forEach((cell, index) => {
+                let div = document.getElementById(`cell-dom-${cell.id}`);
+                
+                if (!div) {
+                    div = document.createElement('div');
+                    div.id = `cell-dom-${cell.id}`;
+                    div.className = 'cell';
+                    container.appendChild(div);
+                }
+
+                div.style.height = `${(cell.value / maxVal) * 100}%`;
+                div.style.width = `18px`;
+                div.style.position = 'absolute';
+                div.style.left = `${index * barWidth}px`;
+                div.style.bottom = '0';
+                div.style.backgroundColor = getCellColor(cell);
+                
+                div.classList.remove('bg-frozen', 'bg-asc', 'bg-desc', 'flash-forward', 'flash-backward', 'event-pulse');
+                
+                // Add specific styling classes
+                if (cell.frozen) div.classList.add('bg-frozen');
+                if (cell.flashType === 'forward') div.classList.add('flash-forward');
+                if (cell.flashType === 'backward') div.classList.add('flash-backward');
+                if (index === pulseIndex) div.classList.add('event-pulse');
+
+                if (index === highlightIndex) {
+                    div.style.outline = '3px solid #f1c40f';
+                    div.style.outlineOffset = '2px';
+                    div.style.zIndex = '100';
+                } else if (index !== pulseIndex) {
+                    div.style.outline = '';
+                    div.style.zIndex = '1';
+                }
+            });
+
+            container.style.width = `${cells.length * barWidth}px`;
+            container.style.position = 'relative';
+        }
+
+        function startReplay(indices, type) {
+            isReplaying = true;
+            pause();
+            
+            const cellA = cells[indices[0]];
+            const cellB = cells[indices[1]];
+            
+            replayIntervalId = setInterval(() => {
+                const idx1 = cells.indexOf(cellA);
+                const idx2 = cells.indexOf(cellB);
+                
+                // Swap back and forth
+                [cells[idx1], cells[idx2]] = [cells[idx2], cells[idx1]];
+                
+                // Only the non-frozen cell flashes its intent
+                if (!cellA.frozen) cellA.flashType = (type === 'dg') ? 'backward' : 'forward';
+                if (!cellB.frozen) cellB.flashType = (type === 'dg') ? 'backward' : 'forward';
+                
+                renderArray(cells.indexOf(cellA.frozen ? cellB : cellA)); 
+            }, 800);
+        }
+
+        function showInfoPanel(title, html) {
+            document.getElementById('info-default').style.display = 'none';
+            document.getElementById('info-event').style.display = 'block';
+            document.getElementById('info-title').innerText = title;
+            document.getElementById('dialog-content').innerHTML = html;
+            document.getElementById('info-panel').classList.add('event-active');
+        }
+
+        function hideInfoPanel() {
+            document.getElementById('info-event').style.display = 'none';
+            document.getElementById('info-default').style.display = 'block';
+            document.getElementById('info-panel').classList.remove('event-active');
+        }
+
+        window.resumeSimulation = function() {
+            clearInterval(replayIntervalId);
+            isReplaying = false;
+            hideInfoPanel();
+            dialogCooldown = 80; 
+            togglePlay();
+        };
+
+        function findLargestClusterIndex(type) {
+            let maxLen = 0, currentLen = 1;
+            let maxStart = 0, currentStart = 0;
+            
+            for(let i = 1; i < cells.length; i++) {
+                if(cells[i].algotype === cells[i-1].algotype) {
+                    currentLen++;
+                } else {
+                    if(currentLen > maxLen) { maxLen = currentLen; maxStart = currentStart; }
+                    currentLen = 1;
+                    currentStart = i;
+                }
+            }
+            if(currentLen > maxLen) { maxLen = currentLen; maxStart = currentStart; }
+            return Math.floor(maxStart + (maxLen / 2));
+        }
+
+        // --- 6. Main Flow Controls ---
+        function initExperiment(type) {
+            pause();
+            clearInterval(replayIntervalId);
+            isReplaying = false;
+            currentExperiment = type;
+            cells = [];
+            stepCount = 0;
+            dgStage = 0;
+            aggStage = 0;
+            dialogCooldown = 0;
+            hideInfoPanel();
+            highlightLine(-1);
+            
+            document.getElementById('array-container').innerHTML = '';
+
+            let values = Array.from({length: 40}, (_, i) => i + 1);
+            values.sort(() => Math.random() - 0.5);
+
+            if (type === 'delayed') {
+                cells = values.map((val, i) => new Cell(val, "Bubble_Asc", i === 12 || i === 25 || i === 8));
+                document.getElementById('info-default').innerHTML = `
+                    <h3 style="color: #3498db; border-bottom: 2px solid #3498db;">Experiment 1: Delayed Gratification</h3>
+                    <p>This experiment introduces "frozen" cells (grey) that act as barriers, unable to initiate or participate in swaps.</p>
+                    <p>The algorithm exhibits a behavior where agents temporarily move away from their target position to navigate around these defects, resulting in a short-term decrease in global sortedness to achieve the long-term goal.</p>
+                `;
+            } else if (type === 'chimeric') {
+                cells = values.map((val) => {
+                    const atype = Math.random() > 0.5 ? "Bubble_Asc" : "Bubble_Desc";
+                    return new Cell(val, atype, false);
+                });
+                document.getElementById('info-default').innerHTML = `
+                    <h3 style="color: #9b59b6; border-bottom: 2px solid #9b59b6;">Experiment 2: Chimeric Clustering</h3>
+                    <p>This experiment utilizes an array composed of two different algotypes: "Ascending" (blue) and "Descending" (red) agents.</p>
+                    <p>During the sorting process, agents of the same algotype tend to aggregate spatially within the array.</p>
+                    <p>This clustering occurs despite the absence of any explicit instructions in the algorithm for agents to identify or group with their own type. It is an emergent behavior resulting from the interaction of conflicting local policies.</p>
+                `;
+            }
+
+            document.getElementById('btn-play').disabled = false;
+            initCharts();
+            renderArray();
+        }
+
+        function pause() {
+            isPlaying = false;
+            document.getElementById('btn-play').innerText = "▶ Play Simulation";
+            clearInterval(intervalId);
+        }
+
+        function togglePlay() {
+            if (document.getElementById('info-event').style.display === 'block') return;
+
+            isPlaying = !isPlaying;
+            document.getElementById('btn-play').innerText = isPlaying ? "⏸ Pause" : "▶ Resume Simulation";
+            
+            if (isPlaying) {
+                intervalId = setInterval(() => {
+                    if (isReplaying) return;
+
+                    let stepped = false;
+                    const speed = parseInt(document.getElementById('speed-slider').value);
+                    
+                    for(let i=0; i<speed; i++) {
+                        let result = simulateStep();
+                        if (result.swapped) {
+                            stepped = true;
+                            highlightLine(result.activeLine);
+                            
+                            // Delayed Gratification Event
+                            if (currentExperiment === 'delayed' && result.dgEvent && dialogCooldown <= 0) {
+                                if (!dgCompleted) {
+                                    startReplay(result.swapIndices, 'dg');
+                                    const titles = ["Temporary Sortedness Decrease", "Local Computation", "Delayed Gratification"];
+                                    const dialogs = [
+                                        `An active cell has swapped positions with a frozen barrier. This move temporarily decreases the global sortedness metric of the array.`,
+                                        `The sorting algorithm operates strictly on local information. Individual cells do not evaluate global array progress or possess explicit error-handling routines.`,
+                                        `This behavior represents 'Delayed Gratification'. The system accepts a short-term increase in error in order to navigate around a defect and continue progressing toward the sorted state.`
+                                    ];
+                                    showInfoPanel(titles[dgStage], dialogs[dgStage]);
+                                    dgStage++;
+                                    if (dgStage >= 3) dgCompleted = true;
+                                    return;
+                                } else {
+                                    // Post-tutorial: Brief slow-mo pulse
+                                    renderArray(-1, result.activeCellIndex);
+                                    setTimeout(() => renderArray(), 1000);
+                                }
+                            }
+                        }
+                    }
+                    stepCount += speed;
+                    if (dialogCooldown > 0) dialogCooldown -= speed;
+
+                    if (stepped) {
+                        renderArray();
+                        
+                        // Aggregation Event (Continuous highlight)
+                        if (currentExperiment === 'chimeric' && stepCount > 150 && stepCount % 20 === 0) {
+                            const currentAgg = getAggregation();
+                            if (currentAgg > 0.65) {
+                                const clusterIdx = findLargestClusterIndex();
+                                renderArray(-1, clusterIdx);
+                                setTimeout(() => { if (isPlaying && currentExperiment === 'chimeric') renderArray(); }, 1000);
+                            }
+                        }
+
+                        if (stepCount % Math.max(10, speed) === 0) updateCharts();
+                    }
+                }, 100);
+            } else {
+                pause();
+            }
+        }
+
+        // --- 7. Event Listeners Setup ---
+        window.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('btn-delayed').addEventListener('click', () => initExperiment('delayed'));
+            document.getElementById('btn-chimeric').addEventListener('click', () => initExperiment('chimeric'));
+            document.getElementById('btn-play').addEventListener('click', togglePlay);
+        });
+
+    </script>
+</body>
+</html>
