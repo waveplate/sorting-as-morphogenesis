@@ -22,13 +22,13 @@
         
         .slider-container { display: flex; align-items: center; gap: 10px; font-weight: bold; }
         
-        .legend { display: flex; justify-content: center; gap: 15px; font-size: 13px; font-weight: bold; }
+        .legend { display: flex; justify-content: center; gap: 15px; font-size: 13px; font-weight: bold; flex-wrap: wrap; margin: 0 auto 20px auto; }
         .legend-item { display: flex; align-items: center; gap: 5px; }
         .box { width: 14px; height: 14px; border-radius: 3px; border: 1px solid #333; }
         .bg-frozen { background: #95a5a6; border-style: dashed; border-width: 2px; }
         
-        #array-wrapper { position: relative; background: #fff; padding: 40px 20px 20px 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); overflow-x: auto; overflow-y: hidden; display: flex; flex-direction: column; align-items: center; }
-        #array-container { display: flex; align-items: flex-end; justify-content: center; gap: 2px; height: 200px; position: relative; }
+        #array-wrapper { position: relative; background: #fff; padding: 40px 20px 20px 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); overflow-x: auto; overflow-y: hidden; display: flex; flex-direction: column; }
+        #array-container { display: flex; align-items: flex-end; justify-content: center; gap: 2px; height: 200px; position: relative; margin: 0 auto; }
         .cell { 
             width: 18px; 
             border-radius: 4px 4px 0 0; 
@@ -79,6 +79,65 @@
         .info-card { background: #ffffff; color: #2c3e50; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); font-size: 14px; border: 1px solid #ddd; margin-bottom: 20px; transition: all 0.3s ease; }
         .info-card h3 { margin-top: 0; padding-bottom: 10px; }
         .info-card.event-active { border: 2px solid #e67e22; box-shadow: 0 5px 15px rgba(230,126,34,0.2); }
+
+        /* Mobile Responsiveness */
+        @media (max-width: 1100px) {
+            body {
+                padding: 10px;
+            }
+            .header h1 {
+                font-size: 1.6rem;
+            }
+            .main-layout {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 15px;
+            }
+            .left-col, .right-col {
+                width: 100%;
+                min-width: 0;
+            }
+            .dashboard {
+                flex-direction: column;
+                gap: 15px;
+            }
+            .chart-container {
+                height: 250px;
+            }
+            #array-wrapper {
+                padding: 40px 10px 15px 10px;
+            }
+            .controls {
+                gap: 10px;
+                padding: 10px;
+            }
+            button {
+                padding: 12px 15px;
+                flex: 1 1 calc(50% - 10px);
+                min-width: 140px;
+                font-size: 13px;
+            }
+            #btn-play {
+                flex: 1 1 100%;
+            }
+            .slider-container {
+                width: 100%;
+                justify-content: center;
+                margin-top: 5px;
+            }
+            .slider-container input {
+                flex: 1;
+                max-width: 250px;
+            }
+            .legend {
+                flex-wrap: wrap;
+                justify-content: center;
+                gap: 10px;
+            }
+            .info-card, .pseudocode-panel {
+                padding: 15px;
+            }
+        }
     </style>
 </head>
 <body>
